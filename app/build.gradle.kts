@@ -79,6 +79,7 @@ dependencies {
     add("implementation", "androidx.compose.ui:ui")
     add("implementation", "androidx.compose.ui:ui-tooling-preview")
     add("implementation", "androidx.compose.material3:material3")
+    add("implementation", "androidx.compose.material:material-icons-extended")
     add("implementation", "com.google.android.material:material:1.12.0")
     add("implementation", "com.quickbirdstudios:opencv:4.5.3.0")
 

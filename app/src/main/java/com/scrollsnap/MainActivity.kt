@@ -16,36 +16,68 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
@@ -56,6 +88,12 @@ import com.scrollsnap.core.shizuku.ShizukuManager
 import com.scrollsnap.core.stitch.StitchSettingsStore
 import com.scrollsnap.core.stitch.StitchTuning
 import com.scrollsnap.feature.control.OverlayControlService
+import com.scrollsnap.ui.theme.Primary
+import com.scrollsnap.ui.theme.ScrollSnapTheme
+import com.scrollsnap.ui.theme.Secondary
+import com.scrollsnap.ui.theme.Success
+import com.scrollsnap.ui.theme.Surface
+import com.scrollsnap.ui.theme.SurfaceVariant
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -68,7 +106,7 @@ class MainActivity : ComponentActivity() {
         shizukuManager = ShizukuManager(applicationContext)
 
         setContent {
-            MaterialTheme {
+            ScrollSnapTheme {
                 ScrollSnapApp(shizukuManager)
             }
         }
@@ -125,6 +163,7 @@ private class UiPrefs(context: Context) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     val context = LocalContext.current
@@ -146,6 +185,11 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     var quantileText by remember { mutableStateOf(tuning.overlapQuantile.toString()) }
     var safetyRatioText by remember { mutableStateOf(tuning.safetyRatio.toString()) }
     var language by remember { mutableStateOf(uiPrefs.getLanguage()) }
+
+    // Slider values
+    var toleranceValue by remember { mutableFloatStateOf(tuning.toleranceMultiplier) }
+    var quantileValue by remember { mutableFloatStateOf(tuning.overlapQuantile) }
+    var safetyValue by remember { mutableFloatStateOf(tuning.safetyRatio) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -174,12 +218,42 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     val allRequiredGranted = overlayGranted && notificationGranted &&
         shizukuStatus.isBinderAvailable && shizukuStatus.isPermissionGranted
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            when (currentScreen) {
+                AppScreen.Home -> {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        actions = {
+                            TextButton(onClick = { currentScreen = AppScreen.Settings }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = null,
+                                    tint = Primary
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.White,
+                            titleContentColor = MaterialTheme.colorScheme.onBackground
+                        )
+                    )
+                }
+                else -> {}
+            }
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
         ) {
             when (currentScreen) {
                 AppScreen.Onboarding -> {
@@ -229,9 +303,9 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                 AppScreen.Settings -> {
                     SettingsScreen(
                         language = language,
-                        toleranceText = toleranceText,
-                        quantileText = quantileText,
-                        safetyRatioText = safetyRatioText,
+                        toleranceValue = toleranceValue,
+                        quantileValue = quantileValue,
+                        safetyValue = safetyValue,
                         onBack = { currentScreen = AppScreen.Home },
                         onLanguageChange = {
                             language = it
@@ -239,22 +313,14 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                             uiPrefs.applyLanguage()
                             (context as? Activity)?.recreate()
                         },
-                        onToleranceChange = { toleranceText = it },
-                        onQuantileChange = { quantileText = it },
-                        onSafetyRatioChange = { safetyRatioText = it },
+                        onToleranceChange = { toleranceValue = it },
+                        onQuantileChange = { quantileValue = it },
+                        onSafetyRatioChange = { safetyValue = it },
                         onSave = {
-                            val tol = toleranceText.toFloatOrNull()
-                            val qua = quantileText.toFloatOrNull()
-                            val saf = safetyRatioText.toFloatOrNull()
-                            if (tol == null || qua == null || saf == null) {
-                                Toast.makeText(context, context.getString(R.string.invalid_input), Toast.LENGTH_SHORT)
-                                    .show()
-                                return@SettingsScreen
-                            }
                             val newTuning = StitchTuning(
-                                toleranceMultiplier = tol.coerceIn(1.0f, 1.2f),
-                                overlapQuantile = qua.coerceIn(0.2f, 0.8f),
-                                safetyRatio = saf.coerceIn(0.0f, 0.04f),
+                                toleranceMultiplier = toleranceValue,
+                                overlapQuantile = quantileValue,
+                                safetyRatio = safetyValue,
                                 minSafetyPx = StitchTuning.DEFAULT_MIN_SAFETY_PX
                             )
                             coroutineScope.launch {
@@ -270,9 +336,9 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         onReset = {
                             stitchSettingsStore.resetToDefaults()
                             tuning = stitchSettingsStore.getTuning()
-                            toleranceText = tuning.toleranceMultiplier.toString()
-                            quantileText = tuning.overlapQuantile.toString()
-                            safetyRatioText = tuning.safetyRatio.toString()
+                            toleranceValue = tuning.toleranceMultiplier
+                            quantileValue = tuning.overlapQuantile
+                            safetyValue = tuning.safetyRatio
                         },
                         onRunOnboardingAgain = {
                             uiPrefs.setOnboardingCompleted(false)
@@ -301,12 +367,48 @@ private fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = stringResource(R.string.onboarding_title), style = MaterialTheme.typography.headlineSmall)
-        Text(text = stringResource(R.string.onboarding_subtitle), style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(32.dp))
 
+        // App Icon
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(Primary),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Android,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = stringResource(R.string.onboarding_title),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        Text(
+            text = stringResource(R.string.onboarding_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Secondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Permission Items
         PermissionItem(
+            icon = Icons.Filled.Settings,
             title = stringResource(R.string.permission_overlay_title),
             description = stringResource(R.string.permission_overlay_desc),
             granted = overlayGranted,
@@ -314,6 +416,7 @@ private fun OnboardingScreen(
         )
 
         PermissionItem(
+            icon = Icons.Filled.Notifications,
             title = stringResource(R.string.permission_notification_title),
             description = stringResource(R.string.permission_notification_desc),
             granted = notificationGranted,
@@ -322,6 +425,7 @@ private fun OnboardingScreen(
         )
 
         PermissionItem(
+            icon = Icons.Filled.Android,
             title = stringResource(R.string.permission_shizuku_title),
             description = if (shizukuBinderGranted) {
                 stringResource(R.string.permission_shizuku_desc)
@@ -333,34 +437,110 @@ private fun OnboardingScreen(
             grantEnabled = shizukuBinderGranted && !shizukuPermissionGranted
         )
 
-        Button(onClick = onContinue, enabled = allRequiredGranted, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.continue_to_home))
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Continue Button
+        Button(
+            onClick = onContinue,
+            enabled = allRequiredGranted,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Primary,
+                disabledContainerColor = SurfaceVariant
+            )
+        ) {
+            Text(
+                text = stringResource(R.string.continue_to_home),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
 private fun PermissionItem(
+    icon: ImageVector,
     title: String,
     description: String,
     granted: Boolean,
     onGrant: () -> Unit,
     grantEnabled: Boolean = true
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    val statusColor by animateColorAsState(
+        targetValue = if (granted) Success else Secondary,
+        label = "statusColor"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Surface
+        ),
+        border = BorderStroke(1.dp, SurfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodyMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    if (granted) stringResource(R.string.permission_granted) else stringResource(R.string.permission_missing),
-                    style = MaterialTheme.typography.bodyMedium
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(24.dp)
                 )
-                TextButton(onClick = onGrant, enabled = !granted && grantEnabled) {
-                    Text(stringResource(R.string.grant_permission))
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Secondary
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            if (granted) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = Success,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                TextButton(
+                    onClick = onGrant,
+                    enabled = grantEnabled
+                ) {
+                    Text(
+                        text = stringResource(R.string.grant_permission),
+                        color = if (grantEnabled) Primary else Secondary
+                    )
                 }
             }
         }
@@ -375,33 +555,163 @@ private fun HomeScreen(
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(text = stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = stringResource(R.string.status_card_title), style = MaterialTheme.typography.titleMedium)
+        // Main Action Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Android,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
-                    text = stringResource(R.string.status_binder_label) + ": " +
-                        if (status.isBinderAvailable) stringResource(R.string.status_binder_connected)
-                        else stringResource(R.string.status_binder_disconnected)
+                    text = stringResource(R.string.home_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = stringResource(R.string.status_permission_label) + ": " +
-                        if (status.isPermissionGranted) stringResource(R.string.status_permission_granted)
-                        else stringResource(R.string.status_permission_not_granted)
-                )
-                Text(text = stringResource(R.string.status_message_label) + ": ${status.message}")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Status indicators
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatusIndicator(
+                        label = stringResource(R.string.status_binder_label),
+                        isConnected = status.isBinderAvailable
+                    )
+                    StatusIndicator(
+                        label = stringResource(R.string.status_permission_label),
+                        isConnected = status.isPermissionGranted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Main Button
+                Button(
+                    onClick = onOpenFloating,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    enabled = status.isBinderAvailable && status.isPermissionGranted
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.open_floating_button),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
             }
         }
 
-        Button(onClick = onOpenFloating, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.open_floating_button))
+        // Quick Actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                icon = Icons.Filled.Tune,
+                title = stringResource(R.string.open_settings),
+                onClick = onOpenSettings,
+                modifier = Modifier.weight(1f)
+            )
         }
+    }
+}
 
-        Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.open_settings))
+@Composable
+private fun StatusIndicator(
+    label: String,
+    isConnected: Boolean
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (isConnected) Success else MaterialTheme.colorScheme.error)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = if (isConnected)
+                    stringResource(R.string.status_binder_connected)
+                else
+                    stringResource(R.string.status_binder_disconnected),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isConnected) Success else MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionCard(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        border = BorderStroke(1.dp, SurfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -409,14 +719,14 @@ private fun HomeScreen(
 @Composable
 private fun SettingsScreen(
     language: AppLanguage,
-    toleranceText: String,
-    quantileText: String,
-    safetyRatioText: String,
+    toleranceValue: Float,
+    quantileValue: Float,
+    safetyValue: Float,
     onBack: () -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
-    onToleranceChange: (String) -> Unit,
-    onQuantileChange: (String) -> Unit,
-    onSafetyRatioChange: (String) -> Unit,
+    onToleranceChange: (Float) -> Unit,
+    onQuantileChange: (Float) -> Unit,
+    onSafetyRatioChange: (Float) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onRunOnboardingAgain: () -> Unit
@@ -427,14 +737,50 @@ private fun SettingsScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onBack) {
+                Text(text = stringResource(R.string.back), color = Primary)
+            }
+            Text(
+                text = stringResource(R.string.settings_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.width(60.dp))
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.settings_language_title), style = MaterialTheme.typography.titleMedium)
+        // Language Section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Language,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_language_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 LanguageOption(
                     selected = language == AppLanguage.SYSTEM,
                     title = stringResource(R.string.settings_language_system),
@@ -453,42 +799,150 @@ private fun SettingsScreen(
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.settings_stitch_title), style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = toleranceText,
-                    onValueChange = onToleranceChange,
-                    label = { Text(stringResource(R.string.settings_tolerance)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = quantileText,
-                    onValueChange = onQuantileChange,
-                    label = { Text(stringResource(R.string.settings_quantile)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = safetyRatioText,
-                    onValueChange = onSafetyRatioChange,
-                    label = { Text(stringResource(R.string.settings_safety_ratio)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.save_settings))
+        // Stitch Settings Section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_stitch_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
-                TextButton(onClick = onReset) {
-                    Text(stringResource(R.string.reset_defaults))
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tolerance Slider
+                SettingSlider(
+                    label = stringResource(R.string.settings_tolerance),
+                    value = toleranceValue,
+                    onValueChange = onToleranceChange,
+                    valueRange = 1.0f..1.2f,
+                    valueDisplay = String.format("%.2f", toleranceValue)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Quantile Slider
+                SettingSlider(
+                    label = stringResource(R.string.settings_quantile),
+                    value = quantileValue,
+                    onValueChange = onQuantileChange,
+                    valueRange = 0.2f..0.8f,
+                    valueDisplay = String.format("%.2f", quantileValue)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Safety Ratio Slider
+                SettingSlider(
+                    label = stringResource(R.string.settings_safety_ratio),
+                    value = safetyValue,
+                    onValueChange = onSafetyRatioChange,
+                    valueRange = 0.0f..0.04f,
+                    valueDisplay = String.format("%.3f", safetyValue)
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onReset,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.reset_defaults))
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                    ) {
+                        Text(stringResource(R.string.save_settings))
+                    }
                 }
             }
         }
 
-        TextButton(onClick = onRunOnboardingAgain, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.reopen_guide))
+        // Re-run onboarding
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onRunOnboardingAgain),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.reopen_guide),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Primary
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun SettingSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    valueDisplay: String
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = valueDisplay,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Primary
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            colors = SliderDefaults.colors(
+                thumbColor = Primary,
+                activeTrackColor = Primary,
+                inactiveTrackColor = SurfaceVariant
+            )
+        )
     }
 }
 
@@ -501,11 +955,22 @@ private fun LanguageOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.Start
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(text = title, modifier = Modifier.padding(start = 8.dp, top = 12.dp))
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                selectedColor = Primary
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 

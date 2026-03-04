@@ -1,5 +1,6 @@
 package com.scrollsnap.feature.control
 
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -16,7 +18,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -42,11 +46,17 @@ class OverlayControlService : Service() {
 
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
-    private var captureButton: Button? = null
+    private var floatingBubble: FrameLayout? = null
+    private var actionPanel: LinearLayout? = null
     private var hintOverlayView: View? = null
     private var stopTouchOverlayView: View? = null
+
     @Volatile
     private var stopRequested: Boolean = false
+
+    // 悬浮球状态
+    private var isExpanded = false
+    private var isFloatingBubbleVisible = true
 
     override fun onCreate() {
         super.onCreate()
@@ -74,30 +84,112 @@ class OverlayControlService : Service() {
         }
         if (overlayView != null) return
 
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(0xCC222222.toInt())
-            setPadding(18, 12, 18, 12)
-        }
-        val snapBtn = Button(this).apply {
-            text = "Snap"
-            setOnClickListener { runCapture() }
-        }
-        val closeBtn = Button(this).apply {
-            text = "X"
-            setOnClickListener { stopSelf() }
-        }
-        container.addView(snapBtn)
-        container.addView(closeBtn)
-        captureButton = snapBtn
-
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-        val params = WindowManager.LayoutParams(
+
+        // 创建悬浮球容器
+        floatingBubble = FrameLayout(this).apply {
+            // 现代化设计：圆形白底 + 蓝边框
+            val drawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+                setStroke(4, Color.parseColor("#2563EB")) // 品牌蓝
+            }
+            background = drawable
+
+            // 截取按钮
+            val captureBtn = Button(this@OverlayControlService).apply {
+                text = "📸"
+                textSize = 24f
+                setBackgroundColor(Color.TRANSPARENT)
+                setOnClickListener {
+                    if (isExpanded) {
+                        runCapture()
+                    } else {
+                        expandPanel()
+                    }
+                }
+                // 长按关闭悬浮球
+                setOnLongClickListener {
+                    Toast.makeText(this@OverlayControlService, "悬浮球已关闭", Toast.LENGTH_SHORT).show()
+                    this@OverlayControlService.stopSelf()
+                    true
+                }
+            }
+            addView(captureBtn, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ))
+        }
+
+        // 创建操作面板（初始隐藏）
+        actionPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            setPadding(32, 24, 32, 24)
+
+            // 圆角背景
+            val panelDrawable = GradientDrawable().apply {
+                cornerRadius = 24f
+                setColor(Color.WHITE)
+                setStroke(2, Color.parseColor("#2563EB"))
+            }
+            background = panelDrawable
+
+            // 开始截屏按钮
+            val startBtn = Button(this@OverlayControlService).apply {
+                text = "开始截屏"
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(Color.parseColor("#2563EB"))
+                }
+                setOnClickListener { runCapture() }
+            }
+            addView(startBtn, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(48)
+            ).apply {
+                bottomMargin = dpToPx(12)
+            })
+
+            // 收起按钮
+            val closeBtn = Button(this@OverlayControlService).apply {
+                text = "收起"
+                setTextColor(Color.parseColor("#2563EB"))
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(Color.TRANSPARENT)
+                    setStroke(2, Color.parseColor("#2563EB"))
+                }
+                setOnClickListener { collapsePanel() }
+            }
+            addView(closeBtn, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(48)
+            ))
+        }
+
+        // 悬浮球布局参数
+        val bubbleParams = WindowManager.LayoutParams(
+            dpToPx(56),
+            dpToPx(56),
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = dpToPx(16)
+            y = dpToPx(200)
+        }
+
+        // 面板布局参数（初始不可见）
+        val panelParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
@@ -105,30 +197,89 @@ class OverlayControlService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = 30
-            y = 220
+            gravity = Gravity.CENTER
         }
 
-        windowManager?.addView(container, params)
-        overlayView = container
+        // 添加拖拽功能
+        setupDragListener(floatingBubble!!, bubbleParams)
+
+        // 添加到窗口
+        windowManager?.addView(floatingBubble, bubbleParams)
+        windowManager?.addView(actionPanel, panelParams)
+
+        // 初始隐藏面板
+        actionPanel?.visibility = View.GONE
+
+        overlayView = floatingBubble
         updateNotification(getString(R.string.overlay_active))
+    }
+
+    private fun expandPanel() {
+        isExpanded = true
+        actionPanel?.visibility = View.VISIBLE
+        actionPanel?.alpha = 0f
+        actionPanel?.animate()
+            ?.alpha(1f)
+            ?.setDuration(200)
+            ?.start()
+    }
+
+    private fun collapsePanel() {
+        isExpanded = false
+        actionPanel?.animate()
+            ?.alpha(0f)
+            ?.setDuration(200)
+            ?.withEndAction {
+                actionPanel?.visibility = View.GONE
+            }
+            ?.start()
+    }
+
+    private fun setupDragListener(view: View, params: WindowManager.LayoutParams) {
+        var initialX = 0
+        var initialY = 0
+        var initialTouchX = 0f
+        var initialTouchY = 0f
+
+        view.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initialX - (event.rawX - initialTouchX).toInt()
+                    params.y = initialY + (event.rawY - initialTouchY).toInt()
+                    windowManager?.updateViewLayout(view, params)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun runCapture() {
         if (isCapturing) return
-        captureButton?.isEnabled = false
         isCapturing = true
         updateNotification(getString(R.string.capturing))
-        overlayView?.visibility = View.INVISIBLE
-        stopRequested = false
+
+        // 隐藏悬浮球
+        hideFloatingBubble()
+
         scope.launch {
             try {
                 showCaptureHintOverlay()
                 delay(900)
                 removeCaptureHintOverlay()
                 showStopTouchOverlay()
-                // Ensure overlays settle before first frame.
+
                 delay(120)
                 val result = runCatching {
                     withContext(Dispatchers.Default) {
@@ -160,11 +311,38 @@ class OverlayControlService : Service() {
             } finally {
                 removeCaptureHintOverlay()
                 removeStopTouchOverlay()
-                overlayView?.visibility = View.VISIBLE
-                captureButton?.isEnabled = true
+                // 显示悬浮球
+                showFloatingBubble()
                 isCapturing = false
             }
         }
+    }
+
+    private fun hideFloatingBubble() {
+        isFloatingBubbleVisible = false
+        floatingBubble?.animate()
+            ?.scaleX(0f)
+            ?.scaleY(0f)
+            ?.alpha(0f)
+            ?.setDuration(200)
+            ?.withEndAction {
+                floatingBubble?.visibility = View.GONE
+            }
+            ?.start()
+
+        // 同时隐藏操作面板
+        actionPanel?.visibility = View.GONE
+    }
+
+    private fun showFloatingBubble() {
+        floatingBubble?.visibility = View.VISIBLE
+        floatingBubble?.animate()
+            ?.scaleX(1f)
+            ?.scaleY(1f)
+            ?.alpha(1f)
+            ?.setDuration(200)
+            ?.start()
+        isFloatingBubbleVisible = true
     }
 
     private fun showCaptureHintOverlay() {
@@ -173,7 +351,7 @@ class OverlayControlService : Service() {
             text = getString(R.string.starting_capture)
             setTextColor(Color.WHITE)
             setBackgroundColor(0xAA000000.toInt())
-            setPadding(24, 14, 24, 14)
+            setPadding(dpToPx(24), dpToPx(14), dpToPx(24), dpToPx(14))
         }
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -191,7 +369,7 @@ class OverlayControlService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = 110
+            y = dpToPx(110)
         }
         windowManager?.addView(hint, params)
         hintOverlayView = hint
@@ -227,7 +405,6 @@ class OverlayControlService : Service() {
             setBackgroundColor(Color.TRANSPARENT)
             setOnTouchListener { _, event ->
                 detector.onTouchEvent(event)
-                // Intercept only the double-tap trigger; do not hold long gestures.
                 event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_UP
             }
         }
@@ -284,11 +461,14 @@ class OverlayControlService : Service() {
     }
 
     override fun onDestroy() {
-        overlayView?.let { windowManager?.removeView(it) }
+        // 移除悬浮球
+        floatingBubble?.let { windowManager?.removeView(it) }
+        actionPanel?.let { windowManager?.removeView(it) }
         removeCaptureHintOverlay()
         removeStopTouchOverlay()
         overlayView = null
-        captureButton = null
+        floatingBubble = null
+        actionPanel = null
         shizukuManager.dispose()
         scope.cancel()
         isRunning = false

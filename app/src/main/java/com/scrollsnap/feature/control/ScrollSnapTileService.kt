@@ -15,15 +15,17 @@ class ScrollSnapTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val action = if (OverlayControlService.isRunning) {
-            OverlayControlService.ACTION_CAPTURE_NOW
+        if (OverlayControlService.isRunning) {
+            // 如果悬浮球正在运行，关闭它
+            val intent = Intent(this, OverlayControlService::class.java).setAction(OverlayControlService.ACTION_STOP_OVERLAY)
+            startService(intent)
+            qsTile?.state = Tile.STATE_INACTIVE
         } else {
-            OverlayControlService.ACTION_START_OVERLAY
+            // 如果悬浮球未运行，启动它
+            val intent = Intent(this, OverlayControlService::class.java).setAction(OverlayControlService.ACTION_START_OVERLAY)
+            ContextCompat.startForegroundService(this, intent)
+            qsTile?.state = Tile.STATE_ACTIVE
         }
-        val intent = Intent(this, OverlayControlService::class.java).setAction(action)
-        ContextCompat.startForegroundService(this, intent)
-
-        qsTile?.state = Tile.STATE_ACTIVE
         qsTile?.updateTile()
     }
 }
