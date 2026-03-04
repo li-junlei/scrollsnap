@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScrollSnap</string>
+    <string name="home_title">ScrollSnap</string>
+    <string name="status_card_title">Shizuku Status</string>
+    <string name="status_binder_connected">Connected</string>
+    <string name="status_binder_disconnected">Disconnected</string>
+    <string name="status_permission_granted">Granted</string>
+    <string name="status_permission_not_granted">Not granted</string>
+    <string name="status_binder_label">Binder</string>
+    <string name="status_permission_label">Permission</string>
+    <string name="status_message_label">Status</string>
+
+    <string name="open_floating_button">Open Floating Button</string>
+    <string name="open_settings">Settings</string>
+    <string name="back">Back</string>
+
+    <string name="onboarding_title">Before You Start</string>
+    <string name="onboarding_subtitle">Grant required permissions to use ScrollSnap.</string>
+    <string name="permission_overlay_title">Overlay permission</string>
+    <string name="permission_overlay_desc">Required to show the floating trigger.</string>
+    <string name="permission_notification_title">Notification permission</string>
+    <string name="permission_notification_desc">Required for foreground service visibility.</string>
+    <string name="permission_shizuku_title">Shizuku permission</string>
+    <string name="permission_shizuku_desc">Required to run shell swipe and screencap.</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_missing">Missing</string>
+    <string name="grant_permission">Grant</string>
+    <string name="continue_to_home">Continue</string>
+    <string name="onboarding_wait_for_binder">Start Shizuku first, then refresh this page.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_system">Follow system</string>
+    <string name="settings_language_zh_cn">简体中文</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_stitch_title">Advanced Stitch Settings</string>
+    <string name="settings_tolerance">Tolerance Multiplier</string>
+    <string name="settings_quantile">Overlap Quantile</string>
+    <string name="settings_safety_ratio">Safety Ratio</string>
+    <string name="save_settings">Save</string>
+    <string name="reset_defaults">Reset to Defaults</string>
+    <string name="reopen_guide">Run Onboarding Again</string>
+    <string name="saved_ok">Saved.</string>
+    <string name="invalid_input">Invalid input.</string>
+
+    <string name="overlay_perm_required">Overlay permission is required.</string>
+    <string name="overlay_ready">Overlay ready</string>
+    <string name="overlay_active">Overlay active</string>
+    <string name="capturing">Capturing…</string>
+    <string name="starting_capture">Starting capture…</string>
+    <string name="stop_requested">Stop requested, finishing current scroll…</string>
+    <string name="saved_output">Saved: %1$s</string>
+    <string name="capture_failed">Capture failed</string>
+    <string name="capture_timeout_error">Capture timeout/error: %1$s</string>
+    <string name="last_output">Last output: %1$s</string>
+    <string name="overlay_started">Floating button is active.</string>
+</resources>

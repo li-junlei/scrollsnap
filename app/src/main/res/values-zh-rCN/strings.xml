@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScrollSnap</string>
+    <string name="home_title">ScrollSnap</string>
+    <string name="status_card_title">Shizuku 状态</string>
+    <string name="status_binder_connected">已连接</string>
+    <string name="status_binder_disconnected">未连接</string>
+    <string name="status_permission_granted">已授权</string>
+    <string name="status_permission_not_granted">未授权</string>
+    <string name="status_binder_label">Binder</string>
+    <string name="status_permission_label">权限</string>
+    <string name="status_message_label">状态</string>
+
+    <string name="open_floating_button">打开悬浮按钮</string>
+    <string name="open_settings">设置</string>
+    <string name="back">返回</string>
+
+    <string name="onboarding_title">开始前配置</string>
+    <string name="onboarding_subtitle">请先授予 ScrollSnap 运行所需权限。</string>
+    <string name="permission_overlay_title">悬浮窗权限</string>
+    <string name="permission_overlay_desc">用于显示悬浮触发按钮。</string>
+    <string name="permission_notification_title">通知权限</string>
+    <string name="permission_notification_desc">用于前台服务可见性。</string>
+    <string name="permission_shizuku_title">Shizuku 权限</string>
+    <string name="permission_shizuku_desc">用于执行 shell 滑动与截屏命令。</string>
+    <string name="permission_granted">已授权</string>
+    <string name="permission_missing">未授权</string>
+    <string name="grant_permission">去授权</string>
+    <string name="continue_to_home">继续</string>
+    <string name="onboarding_wait_for_binder">请先启动 Shizuku 服务，然后刷新当前页面。</string>
+
+    <string name="settings_title">设置</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_language_zh_cn">简体中文</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_stitch_title">高级拼接参数</string>
+    <string name="settings_tolerance">容差倍率</string>
+    <string name="settings_quantile">重叠分位数</string>
+    <string name="settings_safety_ratio">安全边距比例</string>
+    <string name="save_settings">保存</string>
+    <string name="reset_defaults">恢复默认</string>
+    <string name="reopen_guide">重新运行引导</string>
+    <string name="saved_ok">已保存。</string>
+    <string name="invalid_input">输入无效。</string>
+
+    <string name="overlay_perm_required">需要悬浮窗权限。</string>
+    <string name="overlay_ready">悬浮服务已就绪</string>
+    <string name="overlay_active">悬浮按钮已开启</string>
+    <string name="capturing">截屏中…</string>
+    <string name="starting_capture">即将开始截屏…</string>
+    <string name="stop_requested">已请求停止，完成当前滚动后结束…</string>
+    <string name="saved_output">已保存：%1$s</string>
+    <string name="capture_failed">截屏失败</string>
+    <string name="capture_timeout_error">截屏超时/错误：%1$s</string>
+    <string name="last_output">最近输出：%1$s</string>
+    <string name="overlay_started">悬浮按钮已开启。</string>
+</resources>
