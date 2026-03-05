@@ -100,7 +100,7 @@ class OverlayControlService : Service() {
             val drawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.WHITE)
-                setStroke(4, Color.parseColor("#2563EB")) // 品牌蓝
+                setStroke(4, Color.parseColor("#111111"))
             }
             background = drawable
 
@@ -139,7 +139,7 @@ class OverlayControlService : Service() {
             val panelDrawable = GradientDrawable().apply {
                 cornerRadius = 24f
                 setColor(Color.WHITE)
-                setStroke(2, Color.parseColor("#2563EB"))
+                setStroke(2, Color.parseColor("#111111"))
             }
             background = panelDrawable
 
@@ -149,7 +149,7 @@ class OverlayControlService : Service() {
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply {
                     cornerRadius = 12f
-                    setColor(Color.parseColor("#2563EB"))
+                    setColor(Color.parseColor("#111111"))
                 }
                 setOnClickListener { runCapture() }
             }
@@ -163,11 +163,11 @@ class OverlayControlService : Service() {
             // 收起按钮
             val closeBtn = Button(this@OverlayControlService).apply {
                 text = "收起"
-                setTextColor(Color.parseColor("#2563EB"))
+                setTextColor(Color.parseColor("#111111"))
                 background = GradientDrawable().apply {
                     cornerRadius = 12f
                     setColor(Color.TRANSPARENT)
-                    setStroke(2, Color.parseColor("#2563EB"))
+                    setStroke(2, Color.parseColor("#111111"))
                 }
                 setOnClickListener { collapsePanel() }
             }
