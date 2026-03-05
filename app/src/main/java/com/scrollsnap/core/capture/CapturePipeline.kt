@@ -83,7 +83,7 @@ class CapturePipeline(
             return PipelineResult(false, "Shizuku permission not granted.")
         }
 
-        val frames = captureController.captureFramesUntilStop(
+        val stitched = captureAndStitchIncremental(
             spec = shortSwipeSpec(context),
             stopRequested = stopRequested,
             maxFrames = 36,
@@ -91,47 +91,95 @@ class CapturePipeline(
         ).getOrElse { e ->
             return PipelineResult(false, "Capture failed: ${e.message}")
         }
-
-        val stitchResult = stitcher.stitchSequence(frames)
-        if (!stitchResult.success || stitchResult.mergedBitmap == null) {
-            return PipelineResult(false, "Stitch failed: ${stitchResult.message}")
+        return try {
+            val saved = saveBitmapToGallery(context, stitched.mergedBitmap)
+            PipelineResult(
+                success = true,
+                message = "Pipeline success (${stitched.frameCount} frames, stop by user)",
+                outputPath = saved.path,
+                outputUri = saved.uri?.toString()
+            )
+        } finally {
+            stitched.mergedBitmap.recycle()
         }
-
-        val saved = saveBitmapToGallery(context, stitchResult.mergedBitmap)
-        return PipelineResult(
-            success = true,
-            message = "Pipeline success (${frames.size} frames, stop by user)",
-            outputPath = saved.path,
-            outputUri = saved.uri?.toString()
-        )
     }
 
     private suspend fun runAttempt(
         frameCount: Int,
         swipeSpec: SwipeSpec
     ): PipelineResult {
-        val frames = captureController.captureFramesForStitch(
+        val stitched = captureAndStitchIncremental(
             spec = swipeSpec,
             frameCount = frameCount.coerceAtLeast(2),
             pauseAfterSwipeMs = 520L
         ).getOrElse { e ->
             return PipelineResult(false, "Capture failed: ${e.message}")
         }
-
-        val stitchResult = stitcher.stitchSequence(frames)
-        if (!stitchResult.success || stitchResult.mergedBitmap == null) {
-            return PipelineResult(false, "Stitch failed: ${stitchResult.message}")
+        return try {
+            val saved = saveBitmapToGallery(context, stitched.mergedBitmap)
+            PipelineResult(
+                success = true,
+                message = "Pipeline success (${stitched.frameCount} frames)",
+                outputPath = saved.path,
+                outputUri = saved.uri?.toString()
+            )
+        } finally {
+            stitched.mergedBitmap.recycle()
         }
+    }
 
-        val saved = saveBitmapToGallery(context, stitchResult.mergedBitmap)
-        return PipelineResult(
-            success = true,
-            message = "Pipeline success (${frames.size} frames)",
-            outputPath = saved.path,
-            outputUri = saved.uri?.toString()
-        )
+    private suspend fun captureAndStitchIncremental(
+        spec: SwipeSpec,
+        frameCount: Int? = null,
+        stopRequested: (() -> Boolean)? = null,
+        maxFrames: Int = 32,
+        pauseAfterSwipeMs: Long = 520L
+    ): Result<IncrementalStitchResult> {
+        val targetFrames = frameCount?.coerceAtLeast(2) ?: maxFrames.coerceAtLeast(2)
+        var current = captureController.screenshotToBitmap().getOrElse { return Result.failure(it) }
+        var captured = 1
+
+        try {
+            while (captured < targetFrames) {
+                val swipeResult = captureController.swipe(spec)
+                if (!swipeResult.isSuccess) {
+                    current.recycle()
+                    return Result.failure(IllegalStateException("Swipe failed: ${swipeResult.stderr}"))
+                }
+                kotlinx.coroutines.delay(pauseAfterSwipeMs)
+
+                val next = captureController.screenshotToBitmap().getOrElse {
+                    current.recycle()
+                    return Result.failure(it)
+                }
+                val stitchResult = stitcher.stitchSequence(listOf(current, next))
+                next.recycle()
+                if (!stitchResult.success || stitchResult.mergedBitmap == null) {
+                    current.recycle()
+                    return Result.failure(IllegalStateException("Stitch failed: ${stitchResult.message}"))
+                }
+                current.recycle()
+                current = stitchResult.mergedBitmap
+                captured++
+
+                if (stopRequested?.invoke() == true && captured >= 3) break
+            }
+            if (captured < 2) {
+                current.recycle()
+                return Result.failure(IllegalStateException("Not enough frames to stitch."))
+            }
+            return Result.success(IncrementalStitchResult(current, captured))
+        } catch (e: Throwable) {
+            current.recycle()
+            return Result.failure(e)
+        }
     }
 }
+
+private data class IncrementalStitchResult(
+    val mergedBitmap: Bitmap,
+    val frameCount: Int
+)
 
 fun defaultSwipeSpec(context: Context): SwipeSpec {
     val dm: DisplayMetrics = context.resources.displayMetrics

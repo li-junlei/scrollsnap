@@ -1,9 +1,10 @@
 package com.scrollsnap.feature.control
 
-import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -18,7 +19,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -37,6 +37,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class OverlayControlService : Service() {
 
@@ -267,6 +270,7 @@ class OverlayControlService : Service() {
 
     private fun runCapture() {
         if (isCapturing) return
+        stopRequested = false
         isCapturing = true
         updateNotification(getString(R.string.capturing))
 
@@ -281,29 +285,41 @@ class OverlayControlService : Service() {
                 showStopTouchOverlay()
 
                 delay(120)
-                val result = runCatching {
+                val captureAttempt = runCatching {
                     withContext(Dispatchers.Default) {
                         withTimeout(60_000L) {
                             pipeline.runUntilStopped { stopRequested }
                         }
                     }
-                }.getOrElse { e ->
+                }
+                val result = captureAttempt.getOrElse { e ->
                     PipelineResult(
                         success = false,
                         message = getString(R.string.capture_timeout_error, e.message ?: "unknown")
                     )
                 }
+                val diagnostics = buildCaptureDiagnostics(
+                    result = result,
+                    error = captureAttempt.exceptionOrNull()
+                )
+                val debugModeEnabled = isDebugModeEnabled()
+                if (debugModeEnabled) {
+                    copyTextToClipboard("ScrollSnap Capture Log", diagnostics)
+                }
                 if (result.success) {
                     Toast.makeText(
                         this@OverlayControlService,
-                        getString(R.string.saved_output, result.outputDisplay),
+                        buildToastMessage(
+                            getString(R.string.saved_output, result.outputDisplay),
+                            debugModeEnabled
+                        ),
                         Toast.LENGTH_LONG
                     ).show()
                     updateNotification(getString(R.string.last_output, result.outputDisplay))
                 } else {
                     Toast.makeText(
                         this@OverlayControlService,
-                        result.message,
+                        buildToastMessage(result.message, debugModeEnabled),
                         Toast.LENGTH_LONG
                     ).show()
                     updateNotification(getString(R.string.capture_failed))
@@ -460,10 +476,49 @@ class OverlayControlService : Service() {
         manager.notify(NOTIFICATION_ID, createNotification(content))
     }
 
+    private fun buildCaptureDiagnostics(
+        result: PipelineResult,
+        error: Throwable?
+    ): String {
+        val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        val shizuku = shizukuManager.status.value
+        return buildString {
+            appendLine("time=$time")
+            appendLine("success=${result.success}")
+            appendLine("message=${result.message}")
+            appendLine("output=${result.outputDisplay}")
+            appendLine("shizuku.binder=${shizuku.isBinderAvailable}")
+            appendLine("shizuku.permission=${shizuku.isPermissionGranted}")
+            appendLine("shizuku.message=${shizuku.message}")
+            if (error != null) {
+                appendLine("error.type=${error::class.java.name}")
+                appendLine("error.message=${error.message}")
+                appendLine("stacktrace.begin")
+                appendLine(error.stackTraceToString())
+                appendLine("stacktrace.end")
+            }
+        }
+    }
+
+    private fun copyTextToClipboard(label: String, text: String) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    }
+
+    private fun isDebugModeEnabled(): Boolean {
+        val prefs = applicationContext.getSharedPreferences("scrollsnap_ui", Context.MODE_PRIVATE)
+        return prefs.getBoolean("debug_mode_enabled", false)
+    }
+
+    private fun buildToastMessage(baseMessage: String, debugModeEnabled: Boolean): String {
+        if (!debugModeEnabled) return baseMessage
+        return "$baseMessage\n${getString(R.string.debug_log_copied)}"
+    }
+
     override fun onDestroy() {
         // 移除悬浮球
-        floatingBubble?.let { windowManager?.removeView(it) }
-        actionPanel?.let { windowManager?.removeView(it) }
+        floatingBubble?.let { runCatching { windowManager?.removeView(it) } }
+        actionPanel?.let { runCatching { windowManager?.removeView(it) } }
         removeCaptureHintOverlay()
         removeStopTouchOverlay()
         overlayView = null

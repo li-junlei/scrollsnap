@@ -27,7 +27,8 @@ extensions.configure<ApplicationExtension>("android") {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -88,4 +89,8 @@ dependencies {
 
     add("debugImplementation", "androidx.compose.ui:ui-tooling")
     add("debugImplementation", "androidx.compose.ui:ui-test-manifest")
+    add("testImplementation", "junit:junit:4.13.2")
+    add("androidTestImplementation", "androidx.test.ext:junit:1.2.1")
+    add("androidTestImplementation", "androidx.test:runner:1.6.2")
+    add("androidTestImplementation", "androidx.test:core-ktx:1.6.1")
 }

@@ -54,6 +54,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -132,7 +133,7 @@ private enum class AppLanguage(val tag: String) {
 
 private class UiPrefs(context: Context) {
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("scrollsnap_ui", Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun isOnboardingCompleted(): Boolean = prefs.getBoolean(KEY_ONBOARDING_DONE, false)
 
@@ -148,6 +149,12 @@ private class UiPrefs(context: Context) {
         prefs.edit().putString(KEY_LANG, language.tag).apply()
     }
 
+    fun isDebugModeEnabled(): Boolean = prefs.getBoolean(KEY_DEBUG_MODE, false)
+
+    fun setDebugModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEBUG_MODE, enabled).apply()
+    }
+
     fun applyLanguage() {
         val locales = when (getLanguage()) {
             AppLanguage.SYSTEM -> LocaleListCompat.getEmptyLocaleList()
@@ -158,6 +165,8 @@ private class UiPrefs(context: Context) {
     }
 
     companion object {
+        const val PREFS_NAME = "scrollsnap_ui"
+        const val KEY_DEBUG_MODE = "debug_mode_enabled"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
         private const val KEY_LANG = "app_lang"
     }
@@ -185,6 +194,7 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     var quantileText by remember { mutableStateOf(tuning.overlapQuantile.toString()) }
     var safetyRatioText by remember { mutableStateOf(tuning.safetyRatio.toString()) }
     var language by remember { mutableStateOf(uiPrefs.getLanguage()) }
+    var debugModeEnabled by remember { mutableStateOf(uiPrefs.isDebugModeEnabled()) }
 
     // Slider values
     var toleranceValue by remember { mutableFloatStateOf(tuning.toleranceMultiplier) }
@@ -306,6 +316,7 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         toleranceValue = toleranceValue,
                         quantileValue = quantileValue,
                         safetyValue = safetyValue,
+                        debugModeEnabled = debugModeEnabled,
                         onBack = { currentScreen = AppScreen.Home },
                         onLanguageChange = {
                             language = it
@@ -316,6 +327,10 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         onToleranceChange = { toleranceValue = it },
                         onQuantileChange = { quantileValue = it },
                         onSafetyRatioChange = { safetyValue = it },
+                        onDebugModeChange = {
+                            debugModeEnabled = it
+                            uiPrefs.setDebugModeEnabled(it)
+                        },
                         onSave = {
                             val newTuning = StitchTuning(
                                 toleranceMultiplier = toleranceValue,
@@ -722,11 +737,13 @@ private fun SettingsScreen(
     toleranceValue: Float,
     quantileValue: Float,
     safetyValue: Float,
+    debugModeEnabled: Boolean,
     onBack: () -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
     onToleranceChange: (Float) -> Unit,
     onQuantileChange: (Float) -> Unit,
     onSafetyRatioChange: (Float) -> Unit,
+    onDebugModeChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onRunOnboardingAgain: () -> Unit
@@ -878,6 +895,39 @@ private fun SettingsScreen(
                         Text(stringResource(R.string.save_settings))
                     }
                 }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_debug_mode_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_debug_mode_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Secondary
+                    )
+                }
+                Switch(
+                    checked = debugModeEnabled,
+                    onCheckedChange = onDebugModeChange
+                )
             }
         }
 

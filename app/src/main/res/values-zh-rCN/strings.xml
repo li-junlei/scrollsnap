@@ -35,6 +35,8 @@
     <string name="settings_language_zh_cn">简体中文</string>
     <string name="settings_language_en">English</string>
     <string name="settings_stitch_title">高级拼接参数</string>
+    <string name="settings_debug_mode_title">调试模式</string>
+    <string name="settings_debug_mode_desc">每次截屏后将诊断日志复制到剪贴板。</string>
     <string name="settings_tolerance">容差倍率</string>
     <string name="settings_quantile">重叠分位数</string>
     <string name="settings_safety_ratio">安全边距比例</string>
@@ -55,4 +57,5 @@
     <string name="capture_timeout_error">截屏超时/错误：%1$s</string>
     <string name="last_output">最近输出：%1$s</string>
     <string name="overlay_started">悬浮按钮已开启。</string>
+    <string name="debug_log_copied">调试日志已复制到剪贴板。</string>
 </resources>

@@ -332,6 +332,15 @@ class OpenCvFeatureStitcher(
 
         val topMat = Mat()
         val bottomMat = Mat()
+        var topRoi: Mat? = null
+        var bottomRoi: Mat? = null
+        var topGray: Mat? = null
+        var bottomGray: Mat? = null
+        var kp1: MatOfKeyPoint? = null
+        var kp2: MatOfKeyPoint? = null
+        var desc1: Mat? = null
+        var desc2: Mat? = null
+        var matches: MatOfDMatch? = null
         Utils.bitmapToMat(top, topMat)
         Utils.bitmapToMat(bottom, bottomMat)
 
@@ -340,36 +349,36 @@ class OpenCvFeatureStitcher(
             if (roiHeight < 80) return null
 
             val topRoiStart = top.height - roiHeight
-            val topRoi = Mat(topMat, CvRect(0, topRoiStart, top.width, roiHeight))
-            val bottomRoi = Mat(bottomMat, CvRect(0, 0, bottom.width, roiHeight))
+            topRoi = Mat(topMat, CvRect(0, topRoiStart, top.width, roiHeight))
+            bottomRoi = Mat(bottomMat, CvRect(0, 0, bottom.width, roiHeight))
 
-            val topGray = Mat()
-            val bottomGray = Mat()
-            org.opencv.imgproc.Imgproc.cvtColor(topRoi, topGray, org.opencv.imgproc.Imgproc.COLOR_RGBA2GRAY)
-            org.opencv.imgproc.Imgproc.cvtColor(bottomRoi, bottomGray, org.opencv.imgproc.Imgproc.COLOR_RGBA2GRAY)
+            topGray = Mat()
+            bottomGray = Mat()
+            org.opencv.imgproc.Imgproc.cvtColor(topRoi!!, topGray!!, org.opencv.imgproc.Imgproc.COLOR_RGBA2GRAY)
+            org.opencv.imgproc.Imgproc.cvtColor(bottomRoi!!, bottomGray!!, org.opencv.imgproc.Imgproc.COLOR_RGBA2GRAY)
 
             val orb = ORB.create(1500)
-            val kp1 = MatOfKeyPoint()
-            val kp2 = MatOfKeyPoint()
-            val desc1 = Mat()
-            val desc2 = Mat()
-            orb.detectAndCompute(topGray, Mat(), kp1, desc1)
-            orb.detectAndCompute(bottomGray, Mat(), kp2, desc2)
+            kp1 = MatOfKeyPoint()
+            kp2 = MatOfKeyPoint()
+            desc1 = Mat()
+            desc2 = Mat()
+            orb.detectAndCompute(topGray!!, Mat(), kp1!!, desc1!!)
+            orb.detectAndCompute(bottomGray!!, Mat(), kp2!!, desc2!!)
 
-            if (desc1.empty() || desc2.empty()) return null
+            if (desc1!!.empty() || desc2!!.empty()) return null
             if (desc1.type() != CvType.CV_8U || desc2.type() != CvType.CV_8U) return null
 
             val matcher = BFMatcher.create(Core.NORM_HAMMING, true)
-            val matches = MatOfDMatch()
-            matcher.match(desc1, desc2, matches)
+            matches = MatOfDMatch()
+            matcher.match(desc1, desc2, matches!!)
 
-            val good = matches.toArray()
+            val good = matches!!.toArray()
                 .sortedBy { it.distance }
                 .take(120)
             if (good.size < 10) return null
 
-            val keypoints1 = kp1.toArray()
-            val keypoints2 = kp2.toArray()
+            val keypoints1 = kp1!!.toArray()
+            val keypoints2 = kp2!!.toArray()
             val overlaps = mutableListOf<Int>()
             for (m in good) {
                 val overlap = overlapFromMatch(m, keypoints1, keypoints2, top.height, topRoiStart)
@@ -381,6 +390,15 @@ class OpenCvFeatureStitcher(
             val robust = robustMedian(overlaps)
             return robust
         } finally {
+            matches?.release()
+            desc1?.release()
+            desc2?.release()
+            kp1?.release()
+            kp2?.release()
+            topGray?.release()
+            bottomGray?.release()
+            topRoi?.release()
+            bottomRoi?.release()
             topMat.release()
             bottomMat.release()
         }

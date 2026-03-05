@@ -35,6 +35,8 @@
     <string name="settings_language_zh_cn">简体中文</string>
     <string name="settings_language_en">English</string>
     <string name="settings_stitch_title">Advanced Stitch Settings</string>
+    <string name="settings_debug_mode_title">Debug mode</string>
+    <string name="settings_debug_mode_desc">Copy capture diagnostics to clipboard after each run.</string>
     <string name="settings_tolerance">Tolerance Multiplier</string>
     <string name="settings_quantile">Overlap Quantile</string>
     <string name="settings_safety_ratio">Safety Ratio</string>
@@ -55,4 +57,5 @@
     <string name="capture_timeout_error">Capture timeout/error: %1$s</string>
     <string name="last_output">Last output: %1$s</string>
     <string name="overlay_started">Floating button is active.</string>
+    <string name="debug_log_copied">Debug log copied to clipboard.</string>
 </resources>
