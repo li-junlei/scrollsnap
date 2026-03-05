@@ -28,6 +28,18 @@
     <string name="grant_permission">去授权</string>
     <string name="continue_to_home">继续</string>
     <string name="onboarding_wait_for_binder">请先启动 Shizuku 服务，然后刷新当前页面。</string>
+    <string name="tutorial_title">悬浮球使用教程</string>
+    <string name="tutorial_intro">引导完成后，先看一遍基础操作，避免首次使用时中断。</string>
+    <string name="tutorial_ball_title">1. 悬浮球位置和功能</string>
+    <string name="tutorial_ball_desc">悬浮球会显示在屏幕边缘，可拖动到不遮挡内容的位置。点击悬浮球可开始自动滚动截屏。</string>
+    <string name="tutorial_start_title">2. 如何触发截屏</string>
+    <string name="tutorial_start_desc">点击悬浮球开始截屏。拖动悬浮球可调整位置，不会触发截屏。</string>
+    <string name="tutorial_stop_title">3. 如何停止截屏</string>
+    <string name="tutorial_stop_desc">截屏过程中可在屏幕上方 20% 的透明层双击停止，或按返回键请求停止，应用会在当前轮结束后安全退出。</string>
+    <string name="tutorial_tile_title">4. 快捷开关用法</string>
+    <string name="tutorial_tile_desc">下拉快捷开关后，单击 ScrollSnap 可开启/关闭悬浮球，长按可直接打开应用。</string>
+    <string name="tutorial_dont_show_again">不再显示此教程</string>
+    <string name="tutorial_finish">开始使用</string>
 
     <string name="settings_title">设置</string>
     <string name="settings_language_title">语言</string>
@@ -37,9 +49,12 @@
     <string name="settings_stitch_title">高级拼接参数</string>
     <string name="settings_debug_mode_title">调试模式</string>
     <string name="settings_debug_mode_desc">每次截屏后将诊断日志复制到剪贴板。</string>
-    <string name="settings_tolerance">容差倍率</string>
-    <string name="settings_quantile">重叠分位数</string>
-    <string name="settings_safety_ratio">安全边距比例</string>
+    <string name="settings_tolerance">容差系数</string>
+    <string name="settings_tolerance_desc_simple">拼接容错程度：值越大越容易找到拼接位置，但可能产生重影。</string>
+    <string name="settings_quantile">重叠分位</string>
+    <string name="settings_quantile_desc_simple">拼接位置偏好：值越小越靠上，值越大越靠下，建议保持中间。</string>
+    <string name="settings_safety_ratio">安全系数</string>
+    <string name="settings_safety_ratio_desc_simple">值越大保留画面越多（裁剪少），越不容易丢失内容但容易重复；值越小裁剪越多，不易重影但可能损失内容。</string>
     <string name="save_settings">保存</string>
     <string name="reset_defaults">恢复默认</string>
     <string name="reopen_guide">重新运行引导</string>
@@ -72,4 +87,6 @@
     <string name="last_output">最近输出：%1$s</string>
     <string name="overlay_started">悬浮按钮已开启。</string>
     <string name="debug_log_copied">调试日志已复制到剪贴板。</string>
+    <string name="privacy_local_content">我们仅在本地处理你的截图数据，不会主动上传截图、日志或设备信息到远端服务器。\n\n应用运行所需权限（悬浮窗、通知、Shizuku）仅用于完成滚动截屏与状态提示。你可随时在系统设置中撤销授权。\n\n如果你主动执行检查更新，应用会访问发布页获取版本信息；该流程不包含截图内容。</string>
+    <string name="install_local_content">安装步骤：\n1. 安装并启动 Shizuku。\n2. 打开 ScrollSnap，完成首次权限引导。\n3. 在首页点击“打开悬浮按钮”，授予悬浮窗权限。\n4. 打开目标页面，点击悬浮球开始滚动截屏。\n5. 需要时可在系统快捷开关中添加 ScrollSnap，便于快速开关悬浮球。\n\n常见问题：\n- 无法开始截屏：先确认 Shizuku 已运行且授权仍有效。\n- 看不到悬浮球：确认悬浮窗权限未被系统回收。\n- 截图中断：降低滚动速度或在设置中调整高级拼接参数。</string>
 </resources>

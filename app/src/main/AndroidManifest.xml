@@ -28,6 +28,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TILE_SERVICE_COMPONENT"
+                android:value="com.scrollsnap/.feature.control.ScrollSnapTileService" />
         </activity>
 
         <service

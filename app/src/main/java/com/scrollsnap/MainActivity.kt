@@ -46,6 +46,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -92,6 +93,8 @@ import com.scrollsnap.core.update.GitHubUpdateChecker
 import com.scrollsnap.core.update.UpdateCheckResult
 import com.scrollsnap.core.update.UpdateInfo
 import com.scrollsnap.feature.control.OverlayControlService
+import com.scrollsnap.ui.InstallGuideScreen
+import com.scrollsnap.ui.PrivacyPolicyScreen
 import com.scrollsnap.ui.theme.Primary
 import com.scrollsnap.ui.theme.ScrollSnapTheme
 import com.scrollsnap.ui.theme.Secondary
@@ -128,8 +131,11 @@ class MainActivity : ComponentActivity() {
 
 private enum class AppScreen {
     Onboarding,
+    Tutorial,
     Home,
-    Settings
+    Settings,
+    PrivacyPolicy,
+    InstallGuide
 }
 
 private enum class AppLanguage(val tag: String) {
@@ -146,6 +152,18 @@ private class UiPrefs(context: Context) {
 
     fun setOnboardingCompleted(done: Boolean) {
         prefs.edit().putBoolean(KEY_ONBOARDING_DONE, done).apply()
+    }
+
+    fun isTutorialCompleted(): Boolean = prefs.getBoolean(KEY_TUTORIAL_DONE, false)
+
+    fun setTutorialCompleted(done: Boolean) {
+        prefs.edit().putBoolean(KEY_TUTORIAL_DONE, done).apply()
+    }
+
+    fun isTutorialSkipped(): Boolean = prefs.getBoolean(KEY_TUTORIAL_SKIP, false)
+
+    fun setTutorialSkipped(skipped: Boolean) {
+        prefs.edit().putBoolean(KEY_TUTORIAL_SKIP, skipped).apply()
     }
 
     fun getLanguage(): AppLanguage =
@@ -173,6 +191,8 @@ private class UiPrefs(context: Context) {
         const val KEY_DEBUG_MODE = "debug_mode_enabled"
         private const val KEY_SKIPPED_UPDATE_TAG = "skipped_update_tag"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
+        private const val KEY_TUTORIAL_DONE = "tutorial_done"
+        private const val KEY_TUTORIAL_SKIP = "tutorial_skip"
         private const val KEY_LANG = "app_lang"
 
         fun wrapContextWithLanguage(base: Context): Context {
@@ -212,7 +232,15 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notificationGranted by remember { mutableStateOf(isNotificationGranted(context)) }
     var currentScreen by rememberSaveable {
-        mutableStateOf(if (uiPrefs.isOnboardingCompleted()) AppScreen.Home else AppScreen.Onboarding)
+        mutableStateOf(
+            if (!uiPrefs.isOnboardingCompleted()) {
+                AppScreen.Onboarding
+            } else if (!uiPrefs.isTutorialCompleted() && !uiPrefs.isTutorialSkipped()) {
+                AppScreen.Tutorial
+            } else {
+                AppScreen.Home
+            }
+        )
     }
 
     var tuning by remember { mutableStateOf(stitchSettingsStore.getTuning()) }
@@ -328,9 +356,24 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         onGrantShizuku = { manager.requestPermission() },
                         onContinue = {
                             uiPrefs.setOnboardingCompleted(true)
-                            currentScreen = AppScreen.Home
+                            currentScreen = if (uiPrefs.isTutorialSkipped()) {
+                                uiPrefs.setTutorialCompleted(true)
+                                AppScreen.Home
+                            } else {
+                                AppScreen.Tutorial
+                            }
                         },
                         allRequiredGranted = allRequiredGranted
+                    )
+                }
+
+                AppScreen.Tutorial -> {
+                    TutorialScreen(
+                        onFinish = { dontShowAgain ->
+                            uiPrefs.setTutorialCompleted(true)
+                            uiPrefs.setTutorialSkipped(dontShowAgain)
+                            currentScreen = AppScreen.Home
+                        }
                     )
                 }
 
@@ -399,6 +442,7 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         },
                         onRunOnboardingAgain = {
                             uiPrefs.setOnboardingCompleted(false)
+                            uiPrefs.setTutorialCompleted(false)
                             currentScreen = AppScreen.Onboarding
                         },
                         onCheckUpdate = {
@@ -436,15 +480,23 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                             openUrl(context, BuildConfig.RELEASES_URL)
                         },
                         onOpenPrivacyPolicy = {
-                            val url =
-                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/${BuildConfig.GITHUB_DOCS_BRANCH}/docs/PRIVACY.md"
-                            openUrl(context, url)
+                            currentScreen = AppScreen.PrivacyPolicy
                         },
                         onOpenInstallGuide = {
-                            val url =
-                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/${BuildConfig.GITHUB_DOCS_BRANCH}/docs/INSTALL.md"
-                            openUrl(context, url)
+                            currentScreen = AppScreen.InstallGuide
                         }
+                    )
+                }
+
+                AppScreen.PrivacyPolicy -> {
+                    PrivacyPolicyScreen(
+                        onBack = { currentScreen = AppScreen.Settings }
+                    )
+                }
+
+                AppScreen.InstallGuide -> {
+                    InstallGuideScreen(
+                        onBack = { currentScreen = AppScreen.Settings }
                     )
                 }
             }
@@ -597,6 +649,112 @@ private fun OnboardingScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun TutorialScreen(
+    onFinish: (dontShowAgain: Boolean) -> Unit
+) {
+    var dontShowAgain by rememberSaveable { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = stringResource(R.string.tutorial_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.tutorial_intro),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Secondary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TutorialItem(
+            title = stringResource(R.string.tutorial_ball_title),
+            description = stringResource(R.string.tutorial_ball_desc)
+        )
+        TutorialItem(
+            title = stringResource(R.string.tutorial_start_title),
+            description = stringResource(R.string.tutorial_start_desc)
+        )
+        TutorialItem(
+            title = stringResource(R.string.tutorial_stop_title),
+            description = stringResource(R.string.tutorial_stop_desc)
+        )
+        TutorialItem(
+            title = stringResource(R.string.tutorial_tile_title),
+            description = stringResource(R.string.tutorial_tile_desc)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { dontShowAgain = !dontShowAgain },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = dontShowAgain,
+                onCheckedChange = { dontShowAgain = it }
+            )
+            Text(
+                text = stringResource(R.string.tutorial_dont_show_again),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = { onFinish(dontShowAgain) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary)
+        ) {
+            Text(text = stringResource(R.string.tutorial_finish))
+        }
+    }
+}
+
+@Composable
+private fun TutorialItem(
+    title: String,
+    description: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        border = BorderStroke(1.dp, SurfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = Secondary
+            )
+        }
     }
 }
 
@@ -976,7 +1134,8 @@ private fun SettingsScreen(
                     value = toleranceValue,
                     onValueChange = onToleranceChange,
                     valueRange = 1.0f..1.2f,
-                    valueDisplay = String.format("%.2f", toleranceValue)
+                    valueDisplay = String.format("%.2f", toleranceValue),
+                    description = stringResource(R.string.settings_tolerance_desc_simple)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -987,7 +1146,8 @@ private fun SettingsScreen(
                     value = quantileValue,
                     onValueChange = onQuantileChange,
                     valueRange = 0.2f..0.8f,
-                    valueDisplay = String.format("%.2f", quantileValue)
+                    valueDisplay = String.format("%.2f", quantileValue),
+                    description = stringResource(R.string.settings_quantile_desc_simple)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -998,7 +1158,8 @@ private fun SettingsScreen(
                     value = safetyValue,
                     onValueChange = onSafetyRatioChange,
                     valueRange = 0.0f..0.04f,
-                    valueDisplay = String.format("%.3f", safetyValue)
+                    valueDisplay = String.format("%.3f", safetyValue),
+                    description = stringResource(R.string.settings_safety_ratio_desc_simple)
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -1167,7 +1328,8 @@ private fun SettingSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
-    valueDisplay: String
+    valueDisplay: String,
+    description: String
 ) {
     Column {
         Row(
@@ -1194,6 +1356,11 @@ private fun SettingSlider(
                 activeTrackColor = Primary,
                 inactiveTrackColor = SurfaceVariant
             )
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = Secondary
         )
     }
 }

@@ -28,6 +28,18 @@
     <string name="grant_permission">Grant</string>
     <string name="continue_to_home">Continue</string>
     <string name="onboarding_wait_for_binder">Start Shizuku first, then refresh this page.</string>
+    <string name="tutorial_title">Floating Ball Tutorial</string>
+    <string name="tutorial_intro">Review the basics once to avoid interruptions during your first capture.</string>
+    <string name="tutorial_ball_title">1. Position and purpose</string>
+    <string name="tutorial_ball_desc">The floating ball appears on screen edge. Drag it to avoid blocking content. Tap it to start auto-scroll capture.</string>
+    <string name="tutorial_start_title">2. Start capture</string>
+    <string name="tutorial_start_desc">Tap the floating ball to start. Dragging the ball only repositions it and will not start capture.</string>
+    <string name="tutorial_stop_title">3. Stop capture</string>
+    <string name="tutorial_stop_desc">During capture, double-tap the transparent top 20% area of the screen, or press back. The app exits safely after the current cycle.</string>
+    <string name="tutorial_tile_title">4. Quick settings tile</string>
+    <string name="tutorial_tile_desc">In Quick Settings, tap ScrollSnap to toggle the floating ball. Long press opens the app directly.</string>
+    <string name="tutorial_dont_show_again">Do not show this tutorial again</string>
+    <string name="tutorial_finish">Start Using</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_language_title">Language</string>
@@ -37,9 +49,12 @@
     <string name="settings_stitch_title">Advanced Stitch Settings</string>
     <string name="settings_debug_mode_title">Debug mode</string>
     <string name="settings_debug_mode_desc">Copy capture diagnostics to clipboard after each run.</string>
-    <string name="settings_tolerance">Tolerance Multiplier</string>
+    <string name="settings_tolerance">Tolerance</string>
+    <string name="settings_tolerance_desc_simple">Stitch tolerance: higher finds matches easier but may create ghosting.</string>
     <string name="settings_quantile">Overlap Quantile</string>
+    <string name="settings_quantile_desc_simple">Stitch position preference: lower means upper area, higher means lower area. Keep near middle.</string>
     <string name="settings_safety_ratio">Safety Ratio</string>
+    <string name="settings_safety_ratio_desc_simple">Higher keeps more pixels (less crop), safer for content but may repeat; lower crops more, reduces ghosting but may lose content.</string>
     <string name="save_settings">Save</string>
     <string name="reset_defaults">Reset to Defaults</string>
     <string name="reopen_guide">Run Onboarding Again</string>
@@ -72,4 +87,6 @@
     <string name="last_output">Last output: %1$s</string>
     <string name="overlay_started">Floating button is active.</string>
     <string name="debug_log_copied">Debug log copied to clipboard.</string>
+    <string name="privacy_local_content">All screenshots are processed locally on your device. The app does not proactively upload screenshots, logs, or device data to a remote server.\n\nPermissions (overlay, notification, Shizuku) are only used for scroll capture and status visibility. You can revoke them in system settings at any time.\n\nIf you manually check for updates, the app requests release metadata only. Screenshot content is not included.</string>
+    <string name="install_local_content">Install steps:\n1. Install and start Shizuku.\n2. Open ScrollSnap and finish onboarding permissions.\n3. Tap \"Open Floating Button\" and grant overlay permission.\n4. Open your target page and tap the floating ball to start capture.\n5. Optionally add ScrollSnap to Quick Settings for fast toggling.\n\nTroubleshooting:\n- Cannot start capture: check Shizuku is running and permission is still granted.\n- Floating ball missing: verify overlay permission is not revoked.\n- Capture interrupted: slow down scrolling or adjust advanced stitch parameters.</string>
 </resources>
