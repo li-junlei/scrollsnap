@@ -1,8 +1,28 @@
 import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.api.GradleException
+import java.util.Properties
 
 apply(plugin = "com.android.application")
 apply(plugin = "org.jetbrains.kotlin.android")
+
+val keystoreProps = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigning =
+    keystoreProps.getProperty("storeFile") != null &&
+        keystoreProps.getProperty("storePassword") != null &&
+        keystoreProps.getProperty("keyAlias") != null &&
+        keystoreProps.getProperty("keyPassword") != null
+val wantsReleaseBuild = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+if (wantsReleaseBuild && !hasReleaseSigning) {
+    throw GradleException(
+        "Missing release signing config. Create keystore.properties from keystore.properties.example first."
+    )
+}
 
 extensions.configure<ApplicationExtension>("android") {
     namespace = "com.scrollsnap"
@@ -12,8 +32,11 @@ extensions.configure<ApplicationExtension>("android") {
         applicationId = "com.scrollsnap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 10000
+        versionName = "1.0.0"
+        buildConfigField("String", "GITHUB_OWNER", "\"li-junlei\"")
+        buildConfigField("String", "GITHUB_REPO", "\"scrollsnap\"")
+        buildConfigField("String", "RELEASES_URL", "\"https://github.com/li-junlei/scrollsnap/releases\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -25,17 +48,6 @@ extensions.configure<ApplicationExtension>("android") {
         }
     }
 
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -43,6 +55,30 @@ extensions.configure<ApplicationExtension>("android") {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
     }
 
     externalNativeBuild {

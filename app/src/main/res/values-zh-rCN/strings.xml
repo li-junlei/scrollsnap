@@ -43,6 +43,20 @@
     <string name="save_settings">保存</string>
     <string name="reset_defaults">恢复默认</string>
     <string name="reopen_guide">重新运行引导</string>
+    <string name="settings_version_title">版本</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_release_download">打开下载页</string>
+    <string name="settings_privacy_policy">隐私说明</string>
+    <string name="settings_install_guide">安装说明</string>
+    <string name="settings_latest_version">当前版本：%1$s</string>
+    <string name="update_checking">正在检查更新…</string>
+    <string name="update_up_to_date">当前已是最新版本。</string>
+    <string name="update_check_failed">检查更新失败：%1$s</string>
+    <string name="update_dialog_title">发现新版本</string>
+    <string name="update_dialog_message">当前：%1$s\n最新：%2$s</string>
+    <string name="update_skip_version">跳过此版本</string>
+    <string name="update_download">下载</string>
+    <string name="cancel">取消</string>
     <string name="saved_ok">已保存。</string>
     <string name="invalid_input">输入无效。</string>
 

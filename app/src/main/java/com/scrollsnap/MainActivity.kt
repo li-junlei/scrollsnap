@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -15,7 +16,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -46,6 +46,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -81,13 +82,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleOwner
 import com.scrollsnap.core.shizuku.ShizukuManager
 import com.scrollsnap.core.stitch.StitchSettingsStore
 import com.scrollsnap.core.stitch.StitchTuning
+import com.scrollsnap.core.update.GitHubUpdateChecker
+import com.scrollsnap.core.update.UpdateCheckResult
+import com.scrollsnap.core.update.UpdateInfo
 import com.scrollsnap.feature.control.OverlayControlService
 import com.scrollsnap.ui.theme.Primary
 import com.scrollsnap.ui.theme.ScrollSnapTheme
@@ -96,13 +99,17 @@ import com.scrollsnap.ui.theme.Success
 import com.scrollsnap.ui.theme.Surface
 import com.scrollsnap.ui.theme.SurfaceVariant
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var shizukuManager: ShizukuManager
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(UiPrefs.wrapContextWithLanguage(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        UiPrefs(applicationContext).applyLanguage()
         super.onCreate(savedInstanceState)
         shizukuManager = ShizukuManager(applicationContext)
 
@@ -155,20 +162,32 @@ private class UiPrefs(context: Context) {
         prefs.edit().putBoolean(KEY_DEBUG_MODE, enabled).apply()
     }
 
-    fun applyLanguage() {
-        val locales = when (getLanguage()) {
-            AppLanguage.SYSTEM -> LocaleListCompat.getEmptyLocaleList()
-            AppLanguage.ZH_CN -> LocaleListCompat.forLanguageTags("zh-CN")
-            AppLanguage.EN -> LocaleListCompat.forLanguageTags("en")
-        }
-        AppCompatDelegate.setApplicationLocales(locales)
+    fun getSkippedUpdateTag(): String? = prefs.getString(KEY_SKIPPED_UPDATE_TAG, null)
+
+    fun setSkippedUpdateTag(tag: String?) {
+        prefs.edit().putString(KEY_SKIPPED_UPDATE_TAG, tag).apply()
     }
 
     companion object {
         const val PREFS_NAME = "scrollsnap_ui"
         const val KEY_DEBUG_MODE = "debug_mode_enabled"
+        private const val KEY_SKIPPED_UPDATE_TAG = "skipped_update_tag"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
         private const val KEY_LANG = "app_lang"
+
+        fun wrapContextWithLanguage(base: Context): Context {
+            val prefs = base.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val savedTag = prefs.getString(KEY_LANG, AppLanguage.SYSTEM.tag) ?: AppLanguage.SYSTEM.tag
+            val language = AppLanguage.entries.firstOrNull { it.tag == savedTag } ?: AppLanguage.SYSTEM
+            if (language == AppLanguage.SYSTEM) return base
+
+            val locale = Locale.forLanguageTag(language.tag)
+            Locale.setDefault(locale)
+            val config = Configuration(base.resources.configuration)
+            config.setLocale(locale)
+            config.setLayoutDirection(locale)
+            return base.createConfigurationContext(config)
+        }
     }
 }
 
@@ -176,10 +195,17 @@ private class UiPrefs(context: Context) {
 @Composable
 private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = context as? LifecycleOwner
     val manager = remember { shizukuManager }
     val uiPrefs = remember { UiPrefs(context.applicationContext) }
     val stitchSettingsStore = remember { StitchSettingsStore(context.applicationContext) }
+    val updateChecker = remember {
+        GitHubUpdateChecker(
+            owner = BuildConfig.GITHUB_OWNER,
+            repo = BuildConfig.GITHUB_REPO,
+            releasesBaseUrl = BuildConfig.RELEASES_URL
+        )
+    }
     val coroutineScope = rememberCoroutineScope()
 
     val shizukuStatus by manager.status.collectAsState()
@@ -195,6 +221,8 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
     var safetyRatioText by remember { mutableStateOf(tuning.safetyRatio.toString()) }
     var language by remember { mutableStateOf(uiPrefs.getLanguage()) }
     var debugModeEnabled by remember { mutableStateOf(uiPrefs.isDebugModeEnabled()) }
+    var updateDialogInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var updateChecking by remember { mutableStateOf(false) }
 
     // Slider values
     var toleranceValue by remember { mutableFloatStateOf(tuning.toleranceMultiplier) }
@@ -207,22 +235,35 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
         notificationGranted = isNotificationGranted(context)
     }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                overlayGranted = Settings.canDrawOverlays(context)
-                notificationGranted = isNotificationGranted(context)
-                manager.requestBinder()
-                manager.refreshStatus()
+    DisposableEffect(lifecycleOwner, context) {
+        if (lifecycleOwner == null) {
+            onDispose {}
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    overlayGranted = Settings.canDrawOverlays(context)
+                    notificationGranted = isNotificationGranted(context)
+                    manager.requestBinder()
+                    manager.refreshStatus()
+                }
             }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(Unit) {
         manager.requestBinder()
         manager.refreshStatus()
+        coroutineScope.launch {
+            val result = updateChecker.checkForUpdate(
+                currentVersion = BuildConfig.VERSION_NAME,
+                skippedTag = uiPrefs.getSkippedUpdateTag()
+            )
+            if (result is UpdateCheckResult.UpdateAvailable) {
+                updateDialogInfo = result.info
+            }
+        }
     }
 
     val allRequiredGranted = overlayGranted && notificationGranted &&
@@ -317,11 +358,12 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         quantileValue = quantileValue,
                         safetyValue = safetyValue,
                         debugModeEnabled = debugModeEnabled,
+                        currentVersion = "v${BuildConfig.VERSION_NAME}",
+                        updateChecking = updateChecking,
                         onBack = { currentScreen = AppScreen.Home },
                         onLanguageChange = {
                             language = it
                             uiPrefs.setLanguage(it)
-                            uiPrefs.applyLanguage()
                             (context as? Activity)?.recreate()
                         },
                         onToleranceChange = { toleranceValue = it },
@@ -358,11 +400,92 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         onRunOnboardingAgain = {
                             uiPrefs.setOnboardingCompleted(false)
                             currentScreen = AppScreen.Onboarding
+                        },
+                        onCheckUpdate = {
+                            coroutineScope.launch {
+                                updateChecking = true
+                                val result = updateChecker.checkForUpdate(
+                                    currentVersion = BuildConfig.VERSION_NAME,
+                                    skippedTag = uiPrefs.getSkippedUpdateTag()
+                                )
+                                updateChecking = false
+                                when (result) {
+                                    is UpdateCheckResult.UpdateAvailable -> {
+                                        updateDialogInfo = result.info
+                                    }
+
+                                    is UpdateCheckResult.UpToDate -> {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.update_up_to_date),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+
+                                    is UpdateCheckResult.Error -> {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.update_check_failed, result.message),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        },
+                        onOpenReleasePage = {
+                            openUrl(context, BuildConfig.RELEASES_URL)
+                        },
+                        onOpenPrivacyPolicy = {
+                            val url =
+                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/main/docs/PRIVACY.md"
+                            openUrl(context, url)
+                        },
+                        onOpenInstallGuide = {
+                            val url =
+                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/main/docs/INSTALL.md"
+                            openUrl(context, url)
                         }
                     )
                 }
             }
         }
+    }
+
+    updateDialogInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { updateDialogInfo = null },
+            title = { Text(text = stringResource(R.string.update_dialog_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.update_dialog_message,
+                        "v${BuildConfig.VERSION_NAME}",
+                        info.tag
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    updateDialogInfo = null
+                    openUrl(context, info.releaseUrl)
+                }) {
+                    Text(text = stringResource(R.string.update_download))
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        uiPrefs.setSkippedUpdateTag(info.tag)
+                        updateDialogInfo = null
+                    }) {
+                        Text(text = stringResource(R.string.update_skip_version))
+                    }
+                    TextButton(onClick = { updateDialogInfo = null }) {
+                        Text(text = stringResource(R.string.cancel))
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -738,6 +861,8 @@ private fun SettingsScreen(
     quantileValue: Float,
     safetyValue: Float,
     debugModeEnabled: Boolean,
+    currentVersion: String,
+    updateChecking: Boolean,
     onBack: () -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
     onToleranceChange: (Float) -> Unit,
@@ -746,7 +871,11 @@ private fun SettingsScreen(
     onDebugModeChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
-    onRunOnboardingAgain: () -> Unit
+    onRunOnboardingAgain: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onOpenReleasePage: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
+    onOpenInstallGuide: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -931,6 +1060,79 @@ private fun SettingsScreen(
             }
         }
 
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_version_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.settings_latest_version, currentVersion),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Secondary
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCheckUpdate,
+                        enabled = !updateChecking,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = if (updateChecking) {
+                                stringResource(R.string.update_checking)
+                            } else {
+                                stringResource(R.string.settings_check_update)
+                            }
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onOpenReleasePage,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(R.string.settings_release_download))
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            border = BorderStroke(1.dp, SurfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onOpenPrivacyPolicy,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(R.string.settings_privacy_policy))
+                    }
+                    OutlinedButton(
+                        onClick = onOpenInstallGuide,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(R.string.settings_install_guide))
+                    }
+                }
+            }
+        }
+
         // Re-run onboarding
         Card(
             modifier = Modifier
@@ -1030,4 +1232,9 @@ private fun isNotificationGranted(context: Context): Boolean {
         context,
         Manifest.permission.POST_NOTIFICATIONS
     ) == PackageManager.PERMISSION_GRANTED
+}
+
+private fun openUrl(context: Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
 }

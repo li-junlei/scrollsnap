@@ -43,6 +43,20 @@
     <string name="save_settings">Save</string>
     <string name="reset_defaults">Reset to Defaults</string>
     <string name="reopen_guide">Run Onboarding Again</string>
+    <string name="settings_version_title">Version</string>
+    <string name="settings_check_update">Check for Updates</string>
+    <string name="settings_release_download">Open Download Page</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_install_guide">Install Guide</string>
+    <string name="settings_latest_version">Current: %1$s</string>
+    <string name="update_checking">Checking updates…</string>
+    <string name="update_up_to_date">You are on the latest version.</string>
+    <string name="update_check_failed">Update check failed: %1$s</string>
+    <string name="update_dialog_title">New version available</string>
+    <string name="update_dialog_message">Current: %1$s\nLatest: %2$s</string>
+    <string name="update_skip_version">Skip this version</string>
+    <string name="update_download">Download</string>
+    <string name="cancel">Cancel</string>
     <string name="saved_ok">Saved.</string>
     <string name="invalid_input">Invalid input.</string>
 
