@@ -39,6 +39,9 @@ extensions.configure<ApplicationExtension>("android") {
         buildConfigField("String", "GITHUB_DOCS_BRANCH", "\"master\"")
         buildConfigField("String", "RELEASES_URL", "\"https://github.com/li-junlei/scrollsnap/releases\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
         vectorDrawables {
             useSupportLibrary = true
         }
