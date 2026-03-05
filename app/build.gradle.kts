@@ -36,6 +36,7 @@ extensions.configure<ApplicationExtension>("android") {
         versionName = "1.0.0"
         buildConfigField("String", "GITHUB_OWNER", "\"li-junlei\"")
         buildConfigField("String", "GITHUB_REPO", "\"scrollsnap\"")
+        buildConfigField("String", "GITHUB_DOCS_BRANCH", "\"master\"")
         buildConfigField("String", "RELEASES_URL", "\"https://github.com/li-junlei/scrollsnap/releases\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

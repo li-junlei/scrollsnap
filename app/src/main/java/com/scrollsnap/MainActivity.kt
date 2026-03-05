@@ -437,12 +437,12 @@ private fun ScrollSnapApp(shizukuManager: ShizukuManager) {
                         },
                         onOpenPrivacyPolicy = {
                             val url =
-                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/main/docs/PRIVACY.md"
+                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/${BuildConfig.GITHUB_DOCS_BRANCH}/docs/PRIVACY.md"
                             openUrl(context, url)
                         },
                         onOpenInstallGuide = {
                             val url =
-                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/main/docs/INSTALL.md"
+                                "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/blob/${BuildConfig.GITHUB_DOCS_BRANCH}/docs/INSTALL.md"
                             openUrl(context, url)
                         }
                     )
